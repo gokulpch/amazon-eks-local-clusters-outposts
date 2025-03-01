@@ -1,4 +1,34 @@
 
+# Explanation of EKS Local Cluster Configuration on AWS Outposts
+
+This `eksctl` configuration file defines a fully-private Amazon EKS Local cluster on AWS Outposts. Here's a breakdown of its key elements:
+
+## Core Configuration
+- Creates a cluster named "att-eks" in the us-west-2 region running Kubernetes 1.30
+- Uses an existing private subnet (subnet-0e1cdc2fd18f3db39) in us-west-2a
+
+## Private Cluster Settings
+- `privateCluster.enabled: true` - Makes the cluster fully private with no public endpoint
+- `skipEndpointCreation: true` - Prevents creating a public endpoint for the control plane
+
+## Outpost Configuration
+- Deploys the control plane on a specific AWS Outpost (ARN specified)
+- Uses m5.large instances for the control plane nodes
+- Configurable: uses the smallest available instance type on the Outpost if not specified
+
+## Node Group Configuration
+- Defines one node group named "att-ng"
+- Uses m5.large instances for worker nodes
+- Sets `privateNetworking: true` to ensure nodes have only private IP addresses
+
+## Important Deployment Note
+- Must be deployed with `--without-nodegroup` flag as noted in the comments
+- The reason: eksctl doesn't associate the VPC with the local gateway, which is needed for API connectivity
+- Nodegroups must be created after ensuring connectivity to the API server
+
+This configuration creates a fully isolated EKS cluster with both control plane and worker nodes running on the specified AWS Outpost, with no external internet connectivity.
+
+
 
 # Creating Node Groups for Amazon EKS Local Clusters on AWS Outposts
 
