@@ -1,7 +1,7 @@
 
 # Explanation of EKS Local Cluster Configuration on AWS Outposts
 
-```
+
 # An example ClusterConfig that creates a fully-private cluster on AWS Outposts.
 # Since the VPC will be created by eksctl, it will lack connectivity to the API server because eksctl does not
 # associate the VPC with the local gateway. Therefore, the command must be run with `--without-nodegroup`, as in
@@ -36,7 +36,6 @@ outpost:
   controlPlaneOutpostARN: "arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a"
   # Optional, defaults to the smallest available instance type on the Outpost.
   controlPlaneInstanceType: m5.large
-```
 
 
 This `eksctl` configuration file defines a fully-private Amazon EKS Local cluster on AWS Outposts. Here's a breakdown of its key elements:
