@@ -1,0 +1,34 @@
+# An example ClusterConfig that creates a fully-private cluster on AWS Outposts.
+# Since the VPC will be created by eksctl, it will lack connectivity to the API server because eksctl does not
+# associate the VPC with the local gateway. Therefore, the command must be run with `--without-nodegroup`, as in
+# `eksctl create cluster -f examples/37-outposts.yaml --without-nodegroup`, and the nodegroups can be created after
+# ensuring connectivity to the API server.
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: att-eks
+  region: us-west-2
+  version: "1.30"
+vpc:
+  subnets:
+    private:
+      us-west-2a:
+        id: subnet-0e1cdc2fd18f3db39
+
+privateCluster:
+  enabled: true
+  skipEndpointCreation: true
+
+nodeGroups:
+  - name: att-ng
+    # Optional, defaults to the smallest available instance type on the Outpost.
+    instanceType: m5.large
+    privateNetworking: true
+
+outpost:
+  # Required.
+  controlPlaneOutpostARN: "arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a"
+  # Optional, defaults to the smallest available instance type on the Outpost.
+  controlPlaneInstanceType: m5.large
