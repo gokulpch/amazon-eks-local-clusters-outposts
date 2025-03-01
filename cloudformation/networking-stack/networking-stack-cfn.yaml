@@ -1,1 +1,237 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EKS Networking Infrastructure (VPC, Subnets, VPC Endpoints) [only creates networking required for clusters]'
 
+Parameters:
+  # VPC Parameters
+  VpcCidr:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: CIDR block for the VPC
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x
+
+  # Subnet Parameters
+  PrivateSubnetCidr:
+    Type: String
+    Default: 192.168.32.0/19
+    Description: CIDR block for the private subnet
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x
+
+  AvailabilityZone:
+    Type: String
+    Default: us-west-2a
+    Description: Availability Zone for the private subnet
+
+  # Outpost Parameters
+  OutpostArn:
+    Type: String
+    Default: arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a
+    Description: ARN of the AWS Outpost
+
+  # AWS Region
+  Region:
+    Type: String
+    Default: us-west-2
+    Description: AWS Region
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/VPC'
+
+  ClusterSharedNodeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Communication between all nodes in the cluster
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/ClusterSharedNodeSecurityGroup'
+      VpcId: !Ref 'VPC'
+
+  SubnetPrivateUSWEST2A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref PrivateSubnetCidr
+      OutpostArn: !Ref OutpostArn
+      Tags:
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/SubnetPrivateUSWEST2A'
+      VpcId: !Ref 'VPC'
+
+  PrivateRouteTableUSWEST2A:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/PrivateRouteTableUSWEST2A'
+      VpcId: !Ref 'VPC'
+
+  RouteTableAssociationPrivateUSWEST2A:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref 'PrivateRouteTableUSWEST2A'
+      SubnetId: !Ref 'SubnetPrivateUSWEST2A'
+
+  # VPC Endpoints
+  VPCEndpointEC2:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ec2'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointEC2MESSAGES:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ec2messages'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointECRAPI:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ecr.api'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointECRDKR:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ecr.dkr'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointS3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      RouteTableIds:
+        - !Ref 'PrivateRouteTableUSWEST2A'
+      ServiceName: !Sub 'com.amazonaws.${Region}.s3'
+      VpcEndpointType: Gateway
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointSECRETSMANAGER:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.secretsmanager'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointSSM:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ssm'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointSSMMESSAGES:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.ssmmessages'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointSTS:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref 'ClusterSharedNodeSecurityGroup'
+      ServiceName: !Sub 'com.amazonaws.${Region}.sts'
+      SubnetIds:
+        - !Ref 'SubnetPrivateUSWEST2A'
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+
+  IngressPrivateSubnetUSWEST2A:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: !Ref PrivateSubnetCidr
+      Description: Allow private subnets to communicate with VPC endpoints
+      FromPort: 443
+      GroupId: !Ref 'ClusterSharedNodeSecurityGroup'
+      IpProtocol: tcp
+      ToPort: 443
+      
+  IngressInterNodeGroupSG:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow nodes to communicate with each other (all ports)
+      FromPort: 0
+      GroupId: !Ref 'ClusterSharedNodeSecurityGroup'
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref 'ClusterSharedNodeSecurityGroup'
+      ToPort: 65535
+
+Outputs:
+  VPC:
+    Value: !Ref 'VPC'
+    Export:
+      Name: !Sub '${AWS::StackName}::VPC'
+  
+  SharedNodeSecurityGroup:
+    Value: !Ref 'ClusterSharedNodeSecurityGroup'
+    Export:
+      Name: !Sub '${AWS::StackName}::SharedNodeSecurityGroup'
+  
+  SubnetsPrivate:
+    Value: !Join
+      - ','
+      - - !Ref 'SubnetPrivateUSWEST2A'
+    Export:
+      Name: !Sub '${AWS::StackName}::SubnetsPrivate'
+      
+  VpcCidr:
+    Value: !Ref VpcCidr
+    Export:
+      Name: !Sub '${AWS::StackName}::VpcCidr'
+      
+  PrivateSubnetCidr:
+    Value: !Ref PrivateSubnetCidr
+    Export:
+      Name: !Sub '${AWS::StackName}::PrivateSubnetCidr'
