@@ -8,9 +8,7 @@ Two CFN Stacks:
 
 ## Components created by Networking CFN Template (network-infra.yaml)
 
-# Components Created by the CloudFormation Stack
-
-Here's a comprehensive list of all components created by the CloudFormation template:
+A comprehensive list of all components created by the CloudFormation template:
 
 1. **VPC**
    - Type: `AWS::EC2::VPC`
