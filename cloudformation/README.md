@@ -1,3 +1,5 @@
+# CloudFormation Templates for Amazon EKS Local Clusters on AWS Outposts
+
 This repository contains AWS CloudFromation (native AWS IaaC) templates for creating Amazon EKS Local Clusters on AWS Outposts
 
 Two CFN Stacks:
@@ -6,170 +8,142 @@ Two CFN Stacks:
 
 ## Components created by Networking CFN Template (network-infra.yaml)
 
-**VPC**
+# Components Created by the CloudFormation Stack
 
-Type: AWS::EC2::VPC
-CIDR: 192.168.0.0/16
-Properties: EnableDnsHostnames, EnableDnsSupport
+Here's a comprehensive list of all components created by the CloudFormation template:
 
+1. **VPC**
+   - Type: `AWS::EC2::VPC`
+   - CIDR: 192.168.0.0/16
+   - Properties: EnableDnsHostnames, EnableDnsSupport
 
-**Cluster Shared Node Security Group**
+2. **Cluster Shared Node Security Group**
+   - Type: `AWS::EC2::SecurityGroup`
+   - Purpose: Communication between all nodes in the cluster
+   - VPC: References the VPC created in this stack
 
-Type: AWS::EC2::SecurityGroup
-Purpose: Communication between all nodes in the cluster
-VPC: References the VPC created in this stack
+3. **Private Subnet**
+   - Type: `AWS::EC2::Subnet`
+   - Name: SubnetPrivateUSWEST2A
+   - CIDR: 192.168.32.0/19
+   - Availability Zone: us-west-2a
+   - OutpostArn: arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a
+   - VPC: References the VPC created in this stack
 
+4. **Private Route Table**
+   - Type: `AWS::EC2::RouteTable`
+   - Name: PrivateRouteTableUSWEST2A
+   - VPC: References the VPC created in this stack
 
-**Private Subnet**
+5. **Route Table Association**
+   - Type: `AWS::EC2::SubnetRouteTableAssociation`
+   - Associates the Private Route Table with the Private Subnet
 
-Type: AWS::EC2::Subnet
-Name: SubnetPrivateUSWEST2A
-CIDR: 192.168.32.0/19
-Availability Zone: us-west-2a
-OutpostArn: arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a
-VPC: References the VPC created in this stack
+6. **VPC Endpoint for EC2**
+   - Type: `AWS::EC2::VPCEndpoint`
+   - Service Name: com.amazonaws.[Region].ec2
+   - Type: Interface
+   - Private DNS Enabled: true
+   - Security Group: References the Cluster Shared Node Security Group
+   - Subnet: References the Private Subnet
+   - VPC: References the VPC created in this stack
 
+7. **VPC Endpoint for EC2 Messages**
+   - Type: `AWS::EC2::VPCEndpoint`
+   - Service Name: com.amazonaws.[Region].ec2messages
+   - Type: Interface
+   - Private DNS Enabled: true
+   - Security Group: References the Cluster Shared Node Security Group
+   - Subnet: References the Private Subnet
+   - VPC: References the VPC created in this stack
 
-**Private Route Table**
+8. **VPC Endpoint for ECR API**
+   - Type: `AWS::EC2::VPCEndpoint`
+   - Service Name: com.amazonaws.[Region].ecr.api
+   - Type: Interface
+   - Private DNS Enabled: true
+   - Security Group: References the Cluster Shared Node Security Group
+   - Subnet: References the Private Subnet
+   - VPC: References the VPC created in this stack
 
-Type: AWS::EC2::RouteTable
-Name: PrivateRouteTableUSWEST2A
-VPC: References the VPC created in this stack
+9. **VPC Endpoint for ECR DKR**
+   - Type: `AWS::EC2::VPCEndpoint`
+   - Service Name: com.amazonaws.[Region].ecr.dkr
+   - Type: Interface
+   - Private DNS Enabled: true
+   - Security Group: References the Cluster Shared Node Security Group
+   - Subnet: References the Private Subnet
+   - VPC: References the VPC created in this stack
 
+10. **VPC Endpoint for S3**
+    - Type: `AWS::EC2::VPCEndpoint`
+    - Service Name: com.amazonaws.[Region].s3
+    - Type: Gateway
+    - Route Table: References the Private Route Table
+    - VPC: References the VPC created in this stack
 
-**Route Table Association**
+11. **VPC Endpoint for Secrets Manager**
+    - Type: `AWS::EC2::VPCEndpoint`
+    - Service Name: com.amazonaws.[Region].secretsmanager
+    - Type: Interface
+    - Private DNS Enabled: true
+    - Security Group: References the Cluster Shared Node Security Group
+    - Subnet: References the Private Subnet
+    - VPC: References the VPC created in this stack
 
-Type: AWS::EC2::SubnetRouteTableAssociation
-Associates the Private Route Table with the Private Subnet
+12. **VPC Endpoint for SSM**
+    - Type: `AWS::EC2::VPCEndpoint`
+    - Service Name: com.amazonaws.[Region].ssm
+    - Type: Interface
+    - Private DNS Enabled: true
+    - Security Group: References the Cluster Shared Node Security Group
+    - Subnet: References the Private Subnet
+    - VPC: References the VPC created in this stack
 
+13. **VPC Endpoint for SSM Messages**
+    - Type: `AWS::EC2::VPCEndpoint`
+    - Service Name: com.amazonaws.[Region].ssmmessages
+    - Type: Interface
+    - Private DNS Enabled: true
+    - Security Group: References the Cluster Shared Node Security Group
+    - Subnet: References the Private Subnet
+    - VPC: References the VPC created in this stack
 
-**VPC Endpoint for EC2**
+14. **VPC Endpoint for STS**
+    - Type: `AWS::EC2::VPCEndpoint`
+    - Service Name: com.amazonaws.[Region].sts
+    - Type: Interface
+    - Private DNS Enabled: true
+    - Security Group: References the Cluster Shared Node Security Group
+    - Subnet: References the Private Subnet
+    - VPC: References the VPC created in this stack
 
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ec2
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
+15. **Security Group Ingress Rule for Private Subnet**
+    - Type: `AWS::EC2::SecurityGroupIngress`
+    - Purpose: Allow private subnets to communicate with VPC endpoints
+    - Protocol: TCP
+    - Port Range: 443
+    - CIDR: References the Private Subnet CIDR
+    - Security Group: References the Cluster Shared Node Security Group
 
+16. **Security Group Ingress Rule for Inter-Node Communication**
+    - Type: `AWS::EC2::SecurityGroupIngress`
+    - Purpose: Allow nodes to communicate with each other
+    - Protocol: All (-1)
+    - Port Range: 0-65535
+    - Source: Self-referencing the Cluster Shared Node Security Group
+    - Security Group: References the Cluster Shared Node Security Group
 
-**VPC Endpoint for EC2 Messages**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ec2messages
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for ECR API**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ecr.api
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for ECR DKR**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ecr.dkr
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for S3**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].s3
-Type: Gateway
-Route Table: References the Private Route Table
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for Secrets Manager**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].secretsmanager
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for SSM**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ssm
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for SSM Messages**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].ssmmessages
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-
-**VPC Endpoint for STS**
-
-Type: AWS::EC2::VPCEndpoint
-Service Name: com.amazonaws.[Region].sts
-Type: Interface
-Private DNS Enabled: true
-Security Group: References the Cluster Shared Node Security Group
-Subnet: References the Private Subnet
-VPC: References the VPC created in this stack
-
-**Security Group Ingress Rule for Private Subnet**
-
-Type: AWS::EC2::SecurityGroupIngress
-Purpose: Allow private subnets to communicate with VPC endpoints
-Protocol: TCP
-Port Range: 443
-CIDR: References the Private Subnet CIDR
-Security Group: References the Cluster Shared Node Security Group
-
-**Security Group Ingress Rule for Inter-Node Communication**
-
-Type: AWS::EC2::SecurityGroupIngress
-Purpose: Allow nodes to communicate with each other
-Protocol: All (-1)
-Port Range: 0-65535
-Source: Self-referencing the Cluster Shared Node Security Group
-Security Group: References the Cluster Shared Node Security Group
-
-**CloudFormation Outputs**
-
-VPC: Exports the VPC ID
-SharedNodeSecurityGroup: Exports the Security Group ID
-SubnetsPrivate: Exports the Private Subnet ID
-VpcCidr: Exports the VPC CIDR block
-PrivateSubnetCidr: Exports the Private Subnet CIDR block
+17. **CloudFormation Outputs**
+    - VPC: Exports the VPC ID
+    - SharedNodeSecurityGroup: Exports the Security Group ID
+    - SubnetsPrivate: Exports the Private Subnet ID
+    - VpcCidr: Exports the VPC CIDR block
+    - PrivateSubnetCidr: Exports the Private Subnet CIDR block
 
 All of these components work together to create a secure, private networking infrastructure for an EKS cluster running on AWS Outpost with private connectivity to AWS services.
 
-## AWS CLI Commands to Create Each Component in the CloudFormation Template [if not using the stack above]
-
-# AWS CLI Commands to Create Each Component in the CloudFormation Template
+# AWS CLI Commands to Create Each Component in the CloudFormation Template [if not using the stack above]
 
 **Note**: To run these commands successfully, you'll need to:
 
