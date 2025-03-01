@@ -1,11 +1,49 @@
 
 # Explanation of EKS Local Cluster Configuration on AWS Outposts
 
+```
+# An example ClusterConfig that creates a fully-private cluster on AWS Outposts.
+# Since the VPC will be created by eksctl, it will lack connectivity to the API server because eksctl does not
+# associate the VPC with the local gateway. Therefore, the command must be run with `--without-nodegroup`, as in
+# `eksctl create cluster -f examples/37-outposts.yaml --without-nodegroup`, and the nodegroups can be created after
+# ensuring connectivity to the API server.
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eks-local
+  region: us-west-2
+  version: "1.30"
+vpc:
+  subnets:
+    private:
+      us-west-2a:
+        id: subnet-0e1cdc2fd18f3db39
+
+privateCluster:
+  enabled: true
+  skipEndpointCreation: true
+
+nodeGroups:
+  - name: eks-local-ng
+    # Optional, defaults to the smallest available instance type on the Outpost.
+    instanceType: m5.large
+    privateNetworking: true
+
+outpost:
+  # Required.
+  controlPlaneOutpostARN: "arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a"
+  # Optional, defaults to the smallest available instance type on the Outpost.
+  controlPlaneInstanceType: m5.large
+```
+
+
 This `eksctl` configuration file defines a fully-private Amazon EKS Local cluster on AWS Outposts. Here's a breakdown of its key elements:
 
 ## Core Configuration
-- Creates a cluster named "att-eks" in the us-west-2 region running Kubernetes 1.30
-- Uses an existing private subnet (subnet-0e1cdc2fd18f3db39) in us-west-2a
+- Creates a cluster named "local-eks" in the us-west-2 region running Kubernetes 1.30
+- Uses an existing private subnet (subnet-<id>) in us-west-2a - change this accordingly
 
 ## Private Cluster Settings
 - `privateCluster.enabled: true` - Makes the cluster fully private with no public endpoint
@@ -13,12 +51,12 @@ This `eksctl` configuration file defines a fully-private Amazon EKS Local cluste
 
 ## Outpost Configuration
 - Deploys the control plane on a specific AWS Outpost (ARN specified)
-- Uses m5.large instances for the control plane nodes
+- Uses m5.large instances for the control plane nodes - change this accordingly based on the capacity available
 - Configurable: uses the smallest available instance type on the Outpost if not specified
 
 ## Node Group Configuration
-- Defines one node group named "att-ng"
-- Uses m5.large instances for worker nodes
+- Defines one node group named "local-eks-ng"
+- Uses m5.large instances for worker nodes - change this accordingly based on the capacity available
 - Sets `privateNetworking: true` to ensure nodes have only private IP addresses
 
 ## Important Deployment Note
