@@ -105,3 +105,50 @@ This CloudFormation template creates an Amazon EKS Local cluster on AWS Outpost.
     - Includes mappings for different AWS regions (standard, China, GovCloud, etc.)
 
 This template creates a fully private EKS Local cluster on AWS Outpost with no public internet access, using the networking infrastructure that must be provided as parameters.
+
+## Key Considerations for Fully Private EKS on Outpost
+
+### Accessing the Kubernetes API
+- **Bastion Host Required**: Deploy a bastion host in the same VPC to access the Kubernetes API endpoint
+- **VPN/Direct Connect**: Establish private connectivity from your network to the VPC using Site-to-Site VPN or Direct Connect
+- **Local Kubeconfig**: Generate kubeconfig on machines with VPC connectivity using `aws eks update-kubeconfig`
+- **IAM Authentication**: All API calls require proper IAM permissions despite being in a private network
+
+### Adding Worker Nodes
+- **Node Capacity Planning**: Outpost has fixed physical capacity; plan node scaling limits accordingly
+- **Self-Managed Nodes**: Use EC2 launch templates with the Outpost ARN specified
+- **AMI Considerations**: Use EKS-optimized AMIs pre-cached on the Outpost
+- **Instance Storage**: Limited local storage options compared to region-based clusters
+- **Managed Node Groups**: Not supported on AWS Outposts. Use self-managed nodes
+
+### Networking Considerations
+- **Pod Networking**: CNI plugin uses local IP space; ensure adequate subnet sizing
+- **Service Connectivity**: Services only accessible within the cluster or via private network
+- **Load Balancing**: No AWS Load Balancer Controller for public-facing services; use internal NLBs
+- **Ingress Traffic**: Must design custom ingress solutions using internal load balancers
+- **Egress Traffic**: Workloads can only access resources within VPC or via VPC endpoints
+
+### Operations and Maintenance
+- **Control Plane Upgrades**: Plan for downtime during control plane upgrades
+- **Backup Strategy**: Implement Velero or similar with S3 VPC endpoint access
+- **Log Collection**: Configure audit logs and control plane logs to flow to CloudWatch via endpoints
+- **Monitoring**: Deploy Prometheus/Grafana stack within cluster for observability
+- **Limited AWS Console**: Console operations require connectivity to the private endpoint
+
+### Resilience Challenges
+- **Single Outpost Limitation**: No multi-AZ capability for control plane
+- **Outpost-AWS Link**: Service Link interruptions may impact cluster management functions
+- **Disaster Recovery**: Create DR plans for potential Outpost hardware failures
+- **Application Patterns**: Design applications for single-AZ tolerance with proper replication
+
+### Compliance and Security
+- **Encryption**: Use KMS via VPC endpoints for secret encryption
+- **Private Registry**: Set up local container registry on Outpost or ECR via endpoint
+- **Image Scanning**: Deploy in-cluster scanning tools due to limited online scanning
+- **Pod Security**: Implement PSPs/PSS for enhanced workload isolation
+- **Network Policies**: Deploy Calico or similar for micro-segmentation
+
+### Cost Considerations
+- **Outpost Fixed Costs**: Outpost capacity has fixed costs regardless of EKS usage
+- **Control Plane Pricing**: Additional charges for control plane nodes on Outpost
+- **Data Transfer**: Intra-Outpost data transfer is free but consider VPC endpoint costs
