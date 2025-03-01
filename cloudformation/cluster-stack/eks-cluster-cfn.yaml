@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EKS Local Cluster on AWS Outposts'
+
+Parameters:
+  # Direct Resource References (instead of stack imports)
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: ID of the VPC where the cluster will be created
+
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: ID of the private subnet for the EKS cluster
+
+  SharedNodeSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: ID of the shared node security group
+
+  # Cluster Configuration
+  ClusterName:
+    Type: String
+    Default: outpost-fully-private
+    Description: Name of the EKS cluster
+
+  KubernetesVersion:
+    Type: String
+    Default: '1.30'
+    Description: Kubernetes version for the EKS cluster
+    AllowedValues:
+      - '1.28'
+      - '1.29'
+      - '1.30'
+      - '1.31'
+
+  # Outpost Parameters
+  OutpostArn:
+    Type: String
+    Default: arn:aws:outposts:us-west-2:576319625758:outpost/op-0268f76782a30c66a
+    Description: ARN of the AWS Outpost
+
+  ControlPlaneInstanceType:
+    Type: String
+    Default: m5.large
+    Description: Instance type for the EKS control plane on Outpost
+    AllowedValues:
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - r5.large
+      - r5.xlarge
+      - r5.2xlarge
+
+Mappings:
+  ServicePrincipalPartitionMap:
+    aws:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+      IRA: rolesanywhere.amazonaws.com
+      SSM: ssm.amazonaws.com
+    aws-cn:
+      EC2: ec2.amazonaws.com.cn
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-iso:
+      EC2: ec2.c2s.ic.gov
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-iso-b:
+      EC2: ec2.sc2s.sgov.gov
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-iso-e:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-iso-f:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-us-gov:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+      IRA: rolesanywhere.amazonaws.com
+      SSM: ssm.amazonaws.com
+
+Resources:
+  ControlPlaneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Communication between the control plane and worker nodegroups
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/ControlPlaneSecurityGroup'
+      VpcId: !Ref VpcId
+
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - !FindInMap
+                  - ServicePrincipalPartitionMap
+                  - !Ref 'AWS::Partition'
+                  - EC2
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKSLocalOutpostClusterPolicy'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/ServiceRole'
+
+  ControlPlane:
+    Type: AWS::EKS::Cluster
+    Properties:
+      AccessConfig:
+        AuthenticationMode: CONFIG_MAP
+        BootstrapClusterCreatorAdminPermissions: true
+      BootstrapSelfManagedAddons: false
+      KubernetesNetworkConfig: {}
+      Name: !Ref ClusterName
+      OutpostConfig:
+        ControlPlaneInstanceType: !Ref ControlPlaneInstanceType
+        OutpostArns:
+          - !Ref OutpostArn
+      ResourcesVpcConfig:
+        EndpointPrivateAccess: true
+        EndpointPublicAccess: false
+        SecurityGroupIds:
+          - !Ref 'ControlPlaneSecurityGroup'
+        SubnetIds:
+          - !Ref PrivateSubnetId
+      RoleArn: !GetAtt 'ServiceRole.Arn'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}/ControlPlane'
+      Version: !Ref KubernetesVersion
+
+  # Security Group Ingress Rules
+  IngressDefaultClusterToNodeSG:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow managed and unmanaged nodes to communicate with each other (all ports)
+      FromPort: 0
+      GroupId: !Ref SharedNodeSecurityGroupId
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !GetAtt 'ControlPlane.ClusterSecurityGroupId'
+      ToPort: 65535
+
+  IngressNodeToDefaultClusterSG:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allow unmanaged nodes to communicate with control plane (all ports)
+      FromPort: 0
+      GroupId: !GetAtt 'ControlPlane.ClusterSecurityGroupId'
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref SharedNodeSecurityGroupId
+      ToPort: 65535
+
+Outputs:
+  ARN:
+    Value: !GetAtt 'ControlPlane.Arn'
+    Export:
+      Name: !Sub '${AWS::StackName}::ARN'
+  
+  CertificateAuthorityData:
+    Value: !GetAtt 'ControlPlane.CertificateAuthorityData'
+  
+  ClusterFullyPrivate:
+    Value: true
+    Export:
+      Name: !Sub '${AWS::StackName}::ClusterFullyPrivate'
+  
+  ClusterSecurityGroupId:
+    Value: !GetAtt 'ControlPlane.ClusterSecurityGroupId'
+    Export:
+      Name: !Sub '${AWS::StackName}::ClusterSecurityGroupId'
+  
+  ClusterStackName:
+    Value: !Ref 'AWS::StackName'
+  
+  Endpoint:
+    Value: !GetAtt 'ControlPlane.Endpoint'
+    Export:
+      Name: !Sub '${AWS::StackName}::Endpoint'
+  
+  FeatureNATMode:
+    Value: Single
+  
+  SecurityGroup:
+    Value: !Ref 'ControlPlaneSecurityGroup'
+    Export:
+      Name: !Sub '${AWS::StackName}::SecurityGroup'
+  
+  ServiceRoleARN:
+    Value: !GetAtt 'ServiceRole.Arn'
+    Export:
+      Name: !Sub '${AWS::StackName}::ServiceRoleARN'
