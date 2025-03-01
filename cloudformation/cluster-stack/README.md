@@ -2,6 +2,8 @@
 
 This CloudFormation template creates an Amazon EKS Local cluster on AWS Outpost. Here's a comprehensive list of all components it creates:
 
+![Alt text](eks-localclusters-cluster.jpeg)
+
 ## IAM Resources
 
 1. **ServiceRole**
