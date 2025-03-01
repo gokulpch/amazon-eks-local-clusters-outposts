@@ -1,4 +1,6 @@
-# Components Created by the EKS Cluster CloudFormation Template
+# CloudFormation Templates for Amazon EKS Local Clusters on AWS Outposts
+
+## Components Created by the EKS Cluster CloudFormation Template
 
 This CloudFormation template creates an Amazon EKS Local cluster on AWS Outpost. Here's a comprehensive list of all components it creates:
 
