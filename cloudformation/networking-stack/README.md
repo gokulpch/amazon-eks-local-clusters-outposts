@@ -6,6 +6,50 @@ Two CFN Stacks:
 1. Creates Networking required for creating fully-private Amazon EKS Local Clusters on AWS Outposts
 2. Create a Amazon EKS - Local Clusters on AWS Outposts using the networking environment created above (users should choose the VPC and Subnet from the above stack as parameters when creationg a cluster)
 
+This CloudFormation template creates a fully private EKS infrastructure on AWS Outpost.
+
+## Considerations for Fully Private Amazon EKS Local Clusters on AWS Outposts
+
+### Network Isolation
+- Completely isolated from public internet with no ingress/egress
+- Requires VPC endpoints for all AWS service communications
+- All control plane traffic stays within private network boundaries
+
+### Private API Endpoint Access
+- Only accessible through private VPC endpoints
+- No public Kubernetes API endpoint available
+- Requires local network connectivity for cluster management
+
+### Container Image Management
+- Private ECR access through VPC endpoints mandatory
+- Local image caching solution recommended for resiliency
+- Air-gapped scenarios require alternative image registry deployment
+
+### Security Infrastructure
+- IAM authentication still required through VPC endpoint for STS
+- Private CA required for certificate management
+- Security group rules critical for controlling all cluster communications
+
+### Networking Complexity
+- Custom CNI configurations may be required
+- Pod-to-pod and pod-to-service traffic contained entirely on Outpost
+- Limited to Outpost subnet CIDR ranges for IP allocation
+
+### Resource Constraints
+- Bounded by physical Outpost capacity rather than regional AWS capacity
+- Node scaling limited by pre-provisioned hardware resources
+- Need careful capacity planning before deployment
+
+### Maintenance Operations
+- Cluster updates require private network connectivity to AWS services
+- Add-on management fully dependent on VPC endpoint availability
+- Troubleshooting tools limited to what's available within private environment
+
+### Compliance Benefits
+- Data never traverses public networks
+- Complete physical control over infrastructure components
+- Simplifies compliance for regulated workloads with strict data locality requirements
+
 ![Alt text](eks-localclusters-private.jpeg)
 
 ## Components created by Networking CFN Template (network-infra.yaml)
@@ -156,7 +200,7 @@ While this approach works, managing these resources with CloudFormation is gener
 
 Here are the AWS CLI commands to create each component defined in the CloudFormation template individually:
 
-## 1. Create VPC
+### 1. Create VPC
 
 ```bash
 aws ec2 create-vpc \
@@ -167,7 +211,7 @@ aws ec2 create-vpc \
   --region us-west-2
 ```
 
-## 2. Create Cluster Shared Node Security Group
+### 2. Create Cluster Shared Node Security Group
 
 ```bash
 # First, you need the VPC ID from the previous command
@@ -181,7 +225,7 @@ aws ec2 create-security-group \
   --region us-west-2
 ```
 
-## 3. Create Private Subnet in Outpost
+### 3. Create Private Subnet in Outpost
 
 ```bash
 aws ec2 create-subnet \
@@ -193,7 +237,7 @@ aws ec2 create-subnet \
   --region us-west-2
 ```
 
-## 4. Create Private Route Table
+### 4. Create Private Route Table
 
 ```bash
 aws ec2 create-route-table \
@@ -202,7 +246,7 @@ aws ec2 create-route-table \
   --region us-west-2
 ```
 
-## 5. Associate Route Table with Private Subnet
+### 5. Associate Route Table with Private Subnet
 
 ```bash
 # Use the IDs from previous commands
@@ -215,7 +259,7 @@ aws ec2 associate-route-table \
   --region us-west-2
 ```
 
-## 6. Create VPC Endpoint for EC2
+### 6. Create VPC Endpoint for EC2
 
 ```bash
 # Use Security Group ID from previous command
@@ -231,7 +275,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 7. Create VPC Endpoint for EC2 Messages
+### 7. Create VPC Endpoint for EC2 Messages
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -244,7 +288,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 8. Create VPC Endpoint for ECR API
+### 8. Create VPC Endpoint for ECR API
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -257,7 +301,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 9. Create VPC Endpoint for ECR DKR
+### 9. Create VPC Endpoint for ECR DKR
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -270,7 +314,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 10. Create S3 Gateway VPC Endpoint
+### 10. Create S3 Gateway VPC Endpoint
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -281,7 +325,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 11. Create VPC Endpoint for Secrets Manager
+### 11. Create VPC Endpoint for Secrets Manager
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -294,7 +338,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 12. Create VPC Endpoint for SSM
+### 12. Create VPC Endpoint for SSM
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -307,7 +351,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 13. Create VPC Endpoint for SSM Messages
+### 13. Create VPC Endpoint for SSM Messages
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -320,7 +364,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 14. Create VPC Endpoint for STS
+### 14. Create VPC Endpoint for STS
 
 ```bash
 aws ec2 create-vpc-endpoint \
@@ -333,7 +377,7 @@ aws ec2 create-vpc-endpoint \
   --region us-west-2
 ```
 
-## 15. Create Security Group Ingress Rule for Private Subnet
+### 15. Create Security Group Ingress Rule for Private Subnet
 
 ```bash
 aws ec2 authorize-security-group-ingress \
@@ -345,7 +389,7 @@ aws ec2 authorize-security-group-ingress \
   --region us-west-2
 ```
 
-## 16. Create Security Group Ingress Rule for Inter-Node Communication
+### 16. Create Security Group Ingress Rule for Inter-Node Communication
 
 ```bash
 aws ec2 authorize-security-group-ingress \
@@ -357,7 +401,7 @@ aws ec2 authorize-security-group-ingress \
   --region us-west-2
 ```
 
-## 17. Create CloudFormation Exports (Stack Outputs)
+### 17. Create CloudFormation Exports (Stack Outputs)
 
 ```bash
 # For CloudFormation exports, you'd typically need to create the entire stack
