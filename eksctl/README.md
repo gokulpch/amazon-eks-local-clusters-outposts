@@ -1,7 +1,5 @@
 
-# Explanation of EKS Local Cluster Configuration on AWS Outposts
-
-
+## Fully private cluster using existing VPC and Subnets
 ```
 # An example ClusterConfig that creates a fully-private cluster on AWS Outposts.
 # Since the VPC will be created by eksctl, it will lack connectivity to the API server because eksctl does not
